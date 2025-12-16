@@ -18,7 +18,8 @@ A Python-based digital forensics tool for extracting and analyzing communication
 ### Software
 - **Python 3.x**: Required for running the tool
 - **ADB (Android Debug Bridge)**: For communicating with the Android device
-- **Root Access** (Highly Recommended): Required to access `/data/data/` directories
+- **Root Access** (Recommended for direct extraction): Required to access `/data/data/` directories
+- **Non-Rooted Support**: The tool now supports non-rooted devices via ADB backup method
 
 ## Setup Instructions
 
@@ -35,12 +36,18 @@ A Python-based digital forensics tool for extracting and analyzing communication
 pip install -r requirements.txt
 ```
 
-### Step 3: Root Access (Recommended)
+### Step 3: Root Access (Optional)
 
-Forensics tools usually require root privileges to access `/data/data/`, where user databases are stored. 
+**For Rooted Devices:**
+- Root access allows direct extraction from `/data/data/` directories
+- Faster and more reliable extraction
+- Use the "Extract All Data (Root)" button in GUI applications
 
-- If you cannot root the phone, you'll need to use the `adb backup` method (more complex to parse)
-- This guide assumes you have root access (e.g., via Magisk or SuperSU) or can run `adb root`
+**For Non-Rooted Devices:**
+- Use the ADB backup method (now fully integrated!)
+- Click "Extract via Backup (Non-Root)" button in GUI applications
+- You'll need to approve backups on your device screen
+- See `BACKUP_FEATURE.md` for detailed instructions
 
 ### Step 4: Extract Database Files
 
