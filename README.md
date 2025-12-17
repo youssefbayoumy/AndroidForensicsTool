@@ -69,42 +69,34 @@ pip install -r requirements.txt
 
 ---
 
-## 📱 User Guide (GUI)
+## 🏃‍♂️ Usage Guide
 
-### Step 1: Prepare Your Device
-1.  On the Android phone, go to **Settings > About Phone**.
-2.  Tap **Build Number** 7 times to enable Developer Mode.
-3.  Go to **Developer Options** and enable **USB Debugging**.
-4.  Connect the phone to your PC. Accept the "Allow USB Debugging?" prompt on the screen.
-
-### Step 2: Launch the Tool
-**Windows Users**:
+### 1. Start the Application
+Run the tool using Python:
 ```bash
 python gui_windows.py
 ```
+*(A window titled "Android Forensic Tool" will open)*
 
-### Step 3: Create a Case
-1.  Enter a **Case Name** (e.g., "Investigation_001") in the top field.
-2.  Click **"Check Device Connection"**. You should see a green checkmark if ADB is working.
+### 2. Connect Your Phone
+1.  Connect your Android device via USB.
+2.  Click the **"Check Device Connection"** button.
+3.  Look for the green status text: `✓ Device connected`.
 
-### Step 4: Extract Evidence
-Choose the method that matches your device:
+### 3. Extract Evidence
+Select the method that fits your device:
 
-*   **Option A: Non-Rooted (Standard)**
-    *   Click **"Extract via Backup (Non-Root)"**.
-    *   **Action Required**: Watch your phone screen! You will be asked to "Back up my data". Tap **"Back up my data"** (bottom right) without entering a password.
-    *   *What happens?* The tool performs a full desktop backup, queries Content Providers for SMS/Calendar, and dumps system stats.
+| Method | Best For... | Description |
+|--------|-------------|-------------|
+| **Extract via Backup (Non-Root)** | **Most Users** | Safe, works on almost all phones. Uses standard backup protocols + API queries to gather data. **Requires you to tap "Back up my data" on your phone screen.** |
+| **Extract All Data (Root)** | **Rooted Phones** | Direct file system access. Faster and allows deeper scraping of protected folders. |
 
-*   **Option B: Rooted (Advanced)**
-    *   Click **"Extract All Data (Root)"**.
-    *   *What happens?* Direct copying of SQlite databases from protected system folders.
-
-### Step 5: Analyze Results
-1.  Wait for the progress bar to reach 100%. Check the "Summary" tab for extraction status.
-2.  Click **"Parse & Generate Report"**. This processes the raw raw files into a timeline.
-3.  Click **"View Report"** to open the Analysis Window.
-    *   Use the **Filter Dropdown** to isolate specific evidence (e.g., just "User Dictionary").
-    *   Click valid rows to see details in the bottom pane.
+### 4. Generate & View Report
+1.  **Parse Data**: Click **"Parse & Generate Report"**. The tool will process all the raw files (databases, XMLs, text logs) into a readable timeline.
+2.  **Analyze**: Click **"View Report"**.
+    *   **Search**: Type a name or phone number in the search bar.
+    *   **Filters**: Use the dropdown to see only "SMS", "Calls", "Calendar", etc.
+    *   **Details**: Click any row to see the full message content.
 
 ---
 
