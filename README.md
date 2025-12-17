@@ -1,93 +1,129 @@
-# Android Forensics Tool - Enhanced Edition
+# 🕵️ Android Digital Forensics Tool
 
-A Python-based digital forensics tool for extracting and analyzing communication artifacts and system data from Android devices. Optimized for both **Rooted** and **Non-Rooted** devices (Android 13+ support).
+> **A professional-grade, open-source forensic acquisition and analysis suite for Android devices.**
+> *Optimized for Windows & Linux | Supports Android 5.0 - 14.0+*
 
-## key Features
+![Python](https://img.shields.io/badge/Python-3.8%2B-blue)
+![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20Linux-lightgrey)
+![Status](https://img.shields.io/badge/Status-Active-success)
 
-### 🔍 Advanced Extraction
-- **SMS/MMS Extraction**: Parses detailed message history.
-- **Call Log Analysis**: Extracts incoming, outgoing, and missed calls.
-- **Browser History**: Analyzes Chrome browsing activity.
-- **Shared Storage**: (NEW) Extracts photos, videos, and documents from user folders.
-- **System Dump**: (NEW) Collects installed app lists, permissions, and device props.
-- **App Usage Stats**: (NEW) Analyzes `usagestats` to reveal recent app activity.
-- **Content Query**: (NEW) Direct API access for **Calendar Events**, **User Dictionary**, and **Contacts** without root.
+## 📖 Overview
 
-### 📊 Analysis & Reporting
-- **Timeline Generation**: Creates a master chronological timeline of all events.
-- **Hash Validation**: Verifies integrity of extracted files with MD5 hashes.
-- **Case Management**: Organizes evidence into case-specific folders.
-- **Built-in Report Viewer**: (NEW) view, filter, and search your evidence directly in the tool (No Excel needed!).
+The **Android Forensics Tool** is designed to extract, parse, and visualize digital evidence from Android smartphones. Unlike standard ADB tools, it employs a **multi-layered extraction strategy** that combines direct file access (Root), system backups (Non-Root), and minimal-privilege API queries to maximize data recovery even on secure, modern Android versions.
 
-## Prerequisites
+It features a modern **GUI Dashboard** and a built-in **Report Viewer**, eliminating the need for external spreadsheet software to analyze results.
 
-### Hardware
-- Target: Android Phone (Developer Mode ON)
-- Host: Computer (Windows/Linux/Mac)
+---
 
-### Software
-- **Python 3.x**: Required for running the tool
-- **ADB (Android Debug Bridge)**: Must be installed and in your system PATH.
+## 🚀 Key Features
 
-## Installation
+### 1. Multi-Vector Data Extraction
+We use four distinct methods to gather evidence, ensuring success even if one method fails:
 
-1. Clone the repository
-2. Install dependencies:
+*   **Communication Artifacts**:
+    *   **SMS/MMS**: Recovers full conversation history, timestamps, and sender details.
+    *   **Call Logs**: Incoming, outgoing, and missed call history with duration.
+    *   **Contacts**: Saved contacts, phone numbers, and last contacted timestamps.
+    *   **User Dictionary**: Recovers custom words typed by the user (slang, names, potential passwords).
+    *   **Calendar Events**: Schedule, appointments, and location data.
+
+*   **Application & System Intelligence**:
+    *   **App Usage Stats**: (Non-Root supported) Analyzes `usagestats` to prove *when* specific apps were used and for how long.
+    *   **Installed Apps**: Lists all 3rd party applications and their installation dates.
+    *   **Permissions Analysis**: Identifies apps with dangerous permissions (e.g., Camera, Location).
+    *   **Chrome History**: Parses web browsing history, titles, and visit times.
+
+*   **File System**:
+    *   **Shared Storage Extraction**: Automatically retrieves photos, videos, and documents from user directories (`/sdcard/DCIM`, `/Documents`, etc.).
+
+### 2. Built-in Report Viewer (New!)
+No more CSVs! The tool includes a powerful analysis dashboard:
+*   **Unified Timeline**: See SMS, Calls, and System Events in one chronological stream.
+*   **Dynamic Filtering**: Filter by "SMS", "Call", "Calendar", or "App Usage" instantly.
+*   **Full-Text Search**: Find keywords like "password", "meet", or specific phone numbers.
+*   **Detailed Inspection**: View full message bodies, including special characters and emojis.
+
+### 3. Smart Extraction Engine
+*   **Auto-Switching**: Automatically detects if a device is Rooted or Non-Rooted and selects the best extraction strategy.
+*   **Case Management**: Automatically organizes evidence into `cases/Case_Name_Date/` folders.
+*   **Hash Verification**: Calculates MD5 hashes for all extracted files to ensure forensic integrity.
+
+---
+
+## 🛠️ Installation
+
+### Prerequisites
+1.  **Python 3.8+**: [Download Here](https://www.python.org/downloads/)
+2.  **ADB (Android Debug Bridge)**: Must be installed and added to your system `PATH`.
+    *   *Windows*: Install "Platform Tools" via Android Studio or stand-alone.
+
+### Setup
 ```bash
+# 1. Clone the repository
+git clone https://github.com/Start-5/AndroidForensicsTool.git
+cd AndroidForensicsTool
+
+# 2. Install dependencies
 pip install -r requirements.txt
 ```
 
-## Usage
+---
 
-### 1. Launch the GUI
-Run the Windows-optimized interface:
+## 📱 User Guide (GUI)
+
+### Step 1: Prepare Your Device
+1.  On the Android phone, go to **Settings > About Phone**.
+2.  Tap **Build Number** 7 times to enable Developer Mode.
+3.  Go to **Developer Options** and enable **USB Debugging**.
+4.  Connect the phone to your PC. Accept the "Allow USB Debugging?" prompt on the screen.
+
+### Step 2: Launch the Tool
+**Windows Users**:
 ```bash
 python gui_windows.py
 ```
 
-### 2. Connect Device
-- Enable **USB Debugging** on your phone.
-- Click **"Check Device Connection"** in the tool.
+### Step 3: Create a Case
+1.  Enter a **Case Name** (e.g., "Investigation_001") in the top field.
+2.  Click **"Check Device Connection"**. You should see a green checkmark if ADB is working.
 
-### 3. Extract Evidence
-*   **Rooted Devices**: Click "Extract All Data (Root)" for fast, direct file access.
-*   **Non-Rooted Devices**: Click **"Extract via Backup (Non-Root)"**.
-    *   This runs a smart multi-stage extraction:
-        1.  **ADB Backup**: Tries to get databases.
-        2.  **Shared Storage**: Pulls photos/docs.
-        3.  **System Dump**: Grabs app lists & usage stats.
-        4.  **Content Query**: Asks the OS for SMS/Calendar data directly (Great for Android 13+).
+### Step 4: Extract Evidence
+Choose the method that matches your device:
 
-### 4. Analyze
-- Click **"Parse & Generate Report"**.
-- Click **"View Report"** to open the built-in viewer.
-    - **Filter**: Dropdown to see only "SMS", "Calendar", etc.
-    - **Search**: Type keywords to find evidence instantly.
+*   **Option A: Non-Rooted (Standard)**
+    *   Click **"Extract via Backup (Non-Root)"**.
+    *   **Action Required**: Watch your phone screen! You will be asked to "Back up my data". Tap **"Back up my data"** (bottom right) without entering a password.
+    *   *What happens?* The tool performs a full desktop backup, queries Content Providers for SMS/Calendar, and dumps system stats.
 
-## Project Structure
+*   **Option B: Rooted (Advanced)**
+    *   Click **"Extract All Data (Root)"**.
+    *   *What happens?* Direct copying of SQlite databases from protected system folders.
 
-```
-AndroidForensicsTool/
-    ├── gui_windows.py       # Main GUI Application
-    ├── core_extractor.py    # Extraction Engine (Root & Non-Root logic)
-    ├── parser.py            # Data Parsers (SQL, XML, Text)
-    ├── cases/               # Output Directory
-    │   └── Case_Name/       # Specific Case Folder
-    │       ├── evidence/    # Raw Extracted Files
-    │       └── Forensic_Report.csv
-    ├── requirements.txt     # Python dependencies
-    └── README.md            # This file
-```
+### Step 5: Analyze Results
+1.  Wait for the progress bar to reach 100%. Check the "Summary" tab for extraction status.
+2.  Click **"Parse & Generate Report"**. This processes the raw raw files into a timeline.
+3.  Click **"View Report"** to open the Analysis Window.
+    *   Use the **Filter Dropdown** to isolate specific evidence (e.g., just "User Dictionary").
+    *   Click valid rows to see details in the bottom pane.
 
-## Database Locations (Reference)
+---
 
-| Artifact | Method | Path/Source |
-|----------|--------|-------------|
-| SMS/MMS | Root / Backup | `/data/data/com.android.providers.telephony/databases/mmssms.db` |
-| Contacts | Root / Query | `/data/data/com.android.providers.contacts/databases/contacts2.db` |
-| Calendar | Query | `content://com.android.calendar/events` |
-| App Usage | System Dump | `dumpsys usagestats` |
+## ⚠️ Troubleshooting
 
-## Legal Notice
+**"ADB Not Found"**
+*   Ensure `adb` is in your Windows Environment Variables (PATH).
+*   Try running `adb devices` in a separate command prompt to verify connectivity.
 
-This tool is for educational and authorized forensic purposes only. Always ensure you have proper authorization before analyzing any device.
+**"Extraction Failed / Backup Empty"**
+*   Did you tap "Back up my data" on the phone? The tool waits for this confirmation.
+*   Some newer phones (Android 12+) may block standard ADB backups for certain apps. The tool automatically falls back to "Content Query" (API) mode to still get SMS and Contacts.
+
+**"Permission Denied"**
+*   Common on non-rooted devices when trying to pull specific /data/ files. Use "Extract via Backup" instead.
+
+---
+
+## ⚖️ Legal Disclaimer
+
+**This software is intended for educational, research, and authorized forensic use only.**
+The developers assume no liability and are not responsible for any misuse or damage caused by this program. Always ensure you have proper legal authorization (e.g., ownership, warrant, or consent) before extracting data from a device.
