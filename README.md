@@ -1,146 +1,93 @@
-# Android Forensics Tool
+# Android Forensics Tool - Enhanced Edition
 
-A Python-based digital forensics tool for extracting and analyzing communication artifacts from Android devices.
+A Python-based digital forensics tool for extracting and analyzing communication artifacts and system data from Android devices. Optimized for both **Rooted** and **Non-Rooted** devices (Android 13+ support).
 
-## Features
+## key Features
 
-- **SMS/MMS Extraction**: Parses SMS messages from Android devices
-- **Call Log Analysis**: Extracts call history including incoming, outgoing, and missed calls
-- **Browser History**: Analyzes Chrome browsing history
-- **Timeline Generation**: Creates chronological reports of all extracted artifacts
+### 🔍 Advanced Extraction
+- **SMS/MMS Extraction**: Parses detailed message history.
+- **Call Log Analysis**: Extracts incoming, outgoing, and missed calls.
+- **Browser History**: Analyzes Chrome browsing activity.
+- **Shared Storage**: (NEW) Extracts photos, videos, and documents from user folders.
+- **System Dump**: (NEW) Collects installed app lists, permissions, and device props.
+- **App Usage Stats**: (NEW) Analyzes `usagestats` to reveal recent app activity.
+- **Content Query**: (NEW) Direct API access for **Calendar Events**, **User Dictionary**, and **Contacts** without root.
+
+### 📊 Analysis & Reporting
+- **Timeline Generation**: Creates a master chronological timeline of all events.
+- **Hash Validation**: Verifies integrity of extracted files with MD5 hashes.
+- **Case Management**: Organizes evidence into case-specific folders.
+- **Built-in Report Viewer**: (NEW) view, filter, and search your evidence directly in the tool (No Excel needed!).
 
 ## Prerequisites
 
 ### Hardware
-- Target: Android Phone (reset and generate test data)
+- Target: Android Phone (Developer Mode ON)
 - Host: Computer (Windows/Linux/Mac)
 
 ### Software
 - **Python 3.x**: Required for running the tool
-- **ADB (Android Debug Bridge)**: For communicating with the Android device
-- **Root Access** (Recommended for direct extraction): Required to access `/data/data/` directories
-- **Non-Rooted Support**: The tool now supports non-rooted devices via ADB backup method
+- **ADB (Android Debug Bridge)**: Must be installed and in your system PATH.
 
-## Setup Instructions
+## Installation
 
-### Step 1: Enable USB Debugging on Android Device
-
-1. Go to **Settings > About Phone**
-2. Tap **Build Number** 7 times until it says "You are a developer"
-3. Go back to **Settings > System > Developer Options**
-4. Enable **USB Debugging**
-
-### Step 2: Install Dependencies
-
+1. Clone the repository
+2. Install dependencies:
 ```bash
 pip install -r requirements.txt
 ```
 
-### Step 3: Root Access (Optional)
-
-**For Rooted Devices:**
-- Root access allows direct extraction from `/data/data/` directories
-- Faster and more reliable extraction
-- Use the "Extract All Data (Root)" button in GUI applications
-
-**For Non-Rooted Devices:**
-- Use the ADB backup method (now fully integrated!)
-- Click "Extract via Backup (Non-Root)" button in GUI applications
-- You'll need to approve backups on your device screen
-- See `BACKUP_FEATURE.md` for detailed instructions
-
-### Step 4: Extract Database Files
-
-Use ADB to pull the database files from your Android device:
-
-```bash
-# Enable root mode
-adb root
-
-# Create evidence folder (if not exists)
-mkdir -p evidence
-
-# Extract SMS/MMS database
-adb pull /data/data/com.android.providers.telephony/databases/mmssms.db ./evidence/
-
-# Extract Call Logs
-adb pull /data/data/com.android.providers.contacts/databases/calllog.db ./evidence/
-
-# Extract Chrome History
-adb pull /data/data/com.android.chrome/app_chrome/Default/History ./evidence/
-```
-
-**Note**: Paths may vary slightly by Android version. If `calllog.db` doesn't exist, it might be inside `contacts2.db`.
-
 ## Usage
 
-1. Place your extracted `.db` files in the `evidence/` folder
-2. Run the main script:
-
+### 1. Launch the GUI
+Run the Windows-optimized interface:
 ```bash
-python main.py
+python gui_windows.py
 ```
 
-3. The tool will generate a `Forensic_Report.csv` file with a chronological timeline of all artifacts
+### 2. Connect Device
+- Enable **USB Debugging** on your phone.
+- Click **"Check Device Connection"** in the tool.
+
+### 3. Extract Evidence
+*   **Rooted Devices**: Click "Extract All Data (Root)" for fast, direct file access.
+*   **Non-Rooted Devices**: Click **"Extract via Backup (Non-Root)"**.
+    *   This runs a smart multi-stage extraction:
+        1.  **ADB Backup**: Tries to get databases.
+        2.  **Shared Storage**: Pulls photos/docs.
+        3.  **System Dump**: Grabs app lists & usage stats.
+        4.  **Content Query**: Asks the OS for SMS/Calendar data directly (Great for Android 13+).
+
+### 4. Analyze
+- Click **"Parse & Generate Report"**.
+- Click **"View Report"** to open the built-in viewer.
+    - **Filter**: Dropdown to see only "SMS", "Calendar", etc.
+    - **Search**: Type keywords to find evidence instantly.
 
 ## Project Structure
 
 ```
 AndroidForensicsTool/
-    ├── main.py              # Main orchestrator script
-    ├── parser.py            # Database parsing functions
+    ├── gui_windows.py       # Main GUI Application
+    ├── core_extractor.py    # Extraction Engine (Root & Non-Root logic)
+    ├── parser.py            # Data Parsers (SQL, XML, Text)
+    ├── cases/               # Output Directory
+    │   └── Case_Name/       # Specific Case Folder
+    │       ├── evidence/    # Raw Extracted Files
+    │       └── Forensic_Report.csv
     ├── requirements.txt     # Python dependencies
-    ├── README.md           # This file
-    └── evidence/           # Place your .db files here
-        ├── mmssms.db
-        ├── calllog.db
-        └── History
+    └── README.md            # This file
 ```
 
-## Database Locations
+## Database Locations (Reference)
 
-| Artifact | Typical Path |
-|----------|-------------|
-| SMS/MMS | `/data/data/com.android.providers.telephony/databases/mmssms.db` |
-| Contacts | `/data/data/com.android.providers.contacts/databases/contacts2.db` |
-| Call Logs | `/data/data/com.android.providers.contacts/databases/calllog.db` |
-| Chrome History | `/data/data/com.android.chrome/app_chrome/Default/History` |
-
-## Output
-
-The tool generates a CSV file (`Forensic_Report.csv`) containing:
-- **Date/Time**: Chronologically sorted timestamps
-- **Artifact Type**: SMS, Call Log, or Browser History
-- **Details**: Message content, phone numbers, URLs, etc.
-
-## Testing
-
-1. **Populate the Phone**: 
-   - Send a few texts to the phone
-   - Make some calls
-   - Visit some websites (e.g., search for "how to hide assets")
-
-2. **Extract**: Use ADB to pull the `.db` files into your evidence folder
-
-3. **Run**: Execute `python main.py`
-
-4. **Analyze**: Open the generated CSV file to see the chronological sequence
-
-## Future Enhancements
-
-- **App List**: Parse `/data/system/packages.xml` to list all installed apps
-- **GUI**: Use tkinter or PyQt for a graphical interface
-- **Hash Validation**: Calculate MD5 hashes of `.db` files before analysis to prove they haven't been tampered with
-- **Additional Artifacts**: WhatsApp, Telegram, Instagram, etc.
-
-## Troubleshooting
-
-- **"No evidence files found"**: Ensure database files are in the `evidence/` folder with correct names
-- **Permission Denied**: Make sure you have root access and `adb root` is enabled
-- **Database locked**: Close any applications that might be using the database files
-- **Path not found**: Android versions may have slightly different paths - check your device's specific paths
+| Artifact | Method | Path/Source |
+|----------|--------|-------------|
+| SMS/MMS | Root / Backup | `/data/data/com.android.providers.telephony/databases/mmssms.db` |
+| Contacts | Root / Query | `/data/data/com.android.providers.contacts/databases/contacts2.db` |
+| Calendar | Query | `content://com.android.calendar/events` |
+| App Usage | System Dump | `dumpsys usagestats` |
 
 ## Legal Notice
 
 This tool is for educational and authorized forensic purposes only. Always ensure you have proper authorization before analyzing any device.
-

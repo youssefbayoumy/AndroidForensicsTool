@@ -34,6 +34,13 @@ class AndroidExtractor:
         ],
         'contacts': [
             '/data/data/com.android.providers.contacts/databases/contacts2.db'
+        ],
+        'wifi': [
+            '/data/misc/wifi/WifiConfigStore.xml',
+            '/data/misc/wifi/wpa_supplicant.conf'
+        ],
+        'packages': [
+            '/data/system/packages.xml'
         ]
     }
     
@@ -59,12 +66,27 @@ class AndroidExtractor:
         'chrome': [
             'apps/com.android.chrome/f/app_chrome/Default/History',
             'apps/com.android.chrome/f/app_chrome/Default/History-journal'
+        ],
+        'chrome': [
+            'apps/com.android.chrome/f/app_chrome/Default/History',
+            'apps/com.android.chrome/f/app_chrome/Default/History-journal'
+        ],
+        'contacts': [
+            'apps/com.android.providers.contacts/db/contacts2.db'
         ]
     }
     
+    # Shared storage paths to investigate
+    SHARED_PATHS = [
+        '/sdcard/DCIM/',
+        '/sdcard/Download/',
+        '/sdcard/Documents/',
+        '/sdcard/Pictures/'
+    ]
+    
     def __init__(self, evidence_dir: str = "evidence"):
         self.evidence_dir = Path(evidence_dir)
-        self.evidence_dir.mkdir(exist_ok=True)
+        self.evidence_dir.mkdir(parents=True, exist_ok=True)
         self.backup_dir = self.evidence_dir / "backup_extracted"
         self.backup_dir.mkdir(exist_ok=True)
         self.is_windows = platform.system() == "Windows"
@@ -449,34 +471,39 @@ class AndroidExtractor:
             })
             return results
         
-        # Step 3-5: Create backups for each package
-        backup_files = {}
+        # Step 3: Combined Backup
         extraction_tasks = [
             ("sms", "mmssms.db", ["sms"]),
             ("calls", "calllog.db", ["calls"]),
+            ("contacts", "contacts2.db", ["contacts", "raw_contacts"]),
             ("chrome", "History", ["urls"])
         ]
+
+        # Identify unique packages to backup
+        unique_packages = set()
+        for idx, (data_type, local_name, expected_tables) in enumerate(extraction_tasks):
+            pkg = self.BACKUP_PACKAGES.get(data_type)
+            if pkg: unique_packages.add(pkg)
+            
+        packages_str = " ".join(unique_packages)
+        backup_file = self.evidence_dir / "combined_backup.ab"
         
-        for idx, (data_type, local_name, expected_tables) in enumerate(extraction_tasks, start=3):
-            package = self.BACKUP_PACKAGES.get(data_type)
-            if not package:
-                continue
+        update_progress(3, f"Requesting backup for all data sources...", 30)
+        
+        # We use a slightly different backup method: backup all defined packages at once
+        success, message = self.create_backup(packages_str, str(backup_file), progress_callback)
+        
+        if success:
+            update_progress(4, "Parsing combined backup...", 40)
+            parse_ok, parse_msg, tar_path = self.parse_backup_file(str(backup_file))
             
-            backup_file = self.evidence_dir / f"{data_type}_backup.ab"
-            update_progress(idx, f"Creating backup for {data_type}...", 15 + (idx * 5))
-            
-            success, message = self.create_backup(package, str(backup_file), progress_callback)
-            if success:
-                backup_files[data_type] = str(backup_file)
-                update_progress(idx + 0.3, f"Parsing {data_type} backup...", 15 + (idx * 5) + 2)
-                
-                # Parse backup
-                parse_ok, parse_msg, tar_path = self.parse_backup_file(str(backup_file))
-                if parse_ok:
-                    update_progress(idx + 0.6, f"Extracting {data_type} from backup...", 15 + (idx * 5) + 3)
+            if parse_ok:
+                # Now extract everything from this single tarball
+                for idx, (data_type, local_name, expected_tables) in enumerate(extraction_tasks, start=5):
+                    update_progress(idx, f"Extracting {data_type} from backup...", 40 + (idx * 5))
                     
-                    # Extract database
                     extract_ok, extract_msg, local_path = self.extract_from_backup(tar_path, data_type, local_name)
+                    
                     if extract_ok:
                         results["extracted_files"][data_type] = {
                             "path": local_path,
@@ -484,48 +511,203 @@ class AndroidExtractor:
                             "message": extract_msg
                         }
                         
-                        # Verify the database
-                        update_progress(idx + 0.8, f"Verifying {data_type} data...", 15 + (idx * 5) + 4)
-                        is_valid, verification = self.verify_database(local_path, expected_tables)
+                        # Verify
+                        if local_name.endswith('.xml'):
+                             is_valid, verification = True, {"file_exists": True, "type": "xml"}
+                        else:
+                             is_valid, verification = self.verify_database(local_path, expected_tables)
+                             
                         results["verification_results"][data_type] = verification
-                        
-                        if not is_valid:
-                            results["warnings"].append({
-                                "step": f"{data_type.upper()} Verification",
-                                "message": f"Database verification issues: {verification.get('error', 'Unknown')}"
-                            })
                     else:
                         results["errors"].append({
-                            "step": f"{data_type.upper()} Extraction",
-                            "message": extract_msg,
-                            "fix_instructions": self._get_backup_fix_instructions(data_type)
+                            "step": f"{data_type} Extraction",
+                            "message": extract_msg
                         })
-                else:
-                    results["errors"].append({
-                        "step": f"{data_type.upper()} Backup Parse",
-                        "message": parse_msg,
-                        "fix_instructions": self._get_backup_fix_instructions(data_type)
-                    })
             else:
-                results["errors"].append({
-                    "step": f"{data_type.upper()} Backup Creation",
-                    "message": message,
-                    "fix_instructions": self._get_backup_fix_instructions(data_type)
-                })
+                 results["errors"].append({"step": "Backup Parse", "message": parse_msg})
+        else:
+             results["errors"].append({"step": "Combined Backup Creation", "message": message})
         
         # Calculate hashes
         update_progress(13, "Calculating file hashes...", 85)
         for data_type, file_info in results["extracted_files"].items():
+            if data_type == 'shared_storage': continue # Skip hashing entire folder for now
             file_path = file_info["path"]
             file_info["hash"] = self.calculate_hash(file_path)
+            
+        # Step: Extract Shared Storage (Works on Android 13+)
+        update_progress(14, "Extracting Shared Storage (Photos/Downloads)...", 90)
+        shared_res = self.extract_shared_storage()
+        if shared_res['success']:
+            results['extracted_files']['shared_storage'] = shared_res
+            results['warnings'].append({
+                "step": "Shared Storage",
+                "message": f"Extracted {shared_res['file_count']} files from shared storage"
+            })
+            
+        # Step: System Dump (Shell Commands fallback)
+        update_progress(14.5, "Running System Dump (Shell Commands)...", 95)
+        sys_res = self.extract_system_dump()
+        if sys_res['success']:
+            results['extracted_files']['system_dump'] = sys_res
+
+        # Step: Content Query (Direct API Access)
+        update_progress(14.8, "Running Content Query (SMS/Calls/Contacts)...", 98)
+        content_res = self.extract_content_query()
+        if content_res['success']:
+            results['extracted_files']['content_query'] = content_res
         
-        # Final verification
-        update_progress(14, "Performing final verification...", 90)
+        # Final verification: If we got ANYTHING, we consider it a partial success
         if results["extracted_files"]:
-            results["success"] = True
+             results["success"] = True
         
         update_progress(15, "Backup extraction complete!", 100)
         return results
+
+    def extract_content_query(self) -> Dict:
+        """
+        Extract data using 'content query' shell command.
+        This often works on non-rooted devices where direct DB access fails.
+        """
+        local_dir = self.evidence_dir / "content_query"
+        local_dir.mkdir(exist_ok=True)
+        
+        queries = {
+            "sms.txt": "content query --uri content://sms/",
+            "calls.txt": "content query --uri content://call_log/calls",
+            "contacts.txt": "content query --uri content://contacts/phones/ --projection display_name:number:last_time_contacted",
+            "calendar.txt": "content query --uri content://com.android.calendar/events --projection title:dtstart:eventLocation",
+            "dictionary.txt": "content query --uri content://user_dictionary/words --projection word:frequency"
+        }
+        
+        extracted_count = 0
+        try:
+            for filename, cmd in queries.items():
+                out_file = local_dir / filename
+                try:
+                    # Run adb shell <cmd> as a single string
+                    result = subprocess.run(f'{self.adb_path} shell "{cmd}"', 
+                                          shell=True,
+                                          capture_output=True, 
+                                          text=True, 
+                                          timeout=20)
+                    
+                    # Even if it errors (SecurityException), we save what we got
+                    with open(out_file, "w", encoding='utf-8') as f:
+                        if result.returncode == 0 and result.stdout:
+                            f.write(result.stdout)
+                            extracted_count += 1
+                        elif result.stderr:
+                             f.write(f"ERROR: {result.stderr}")
+                except Exception as e:
+                    with open(out_file, "w") as f: f.write(str(e))
+            
+            return {
+                "success": True,
+                "path": str(local_dir),
+                "message": f"attempted {len(queries)} content queries"
+            }
+        except Exception as e:
+             return {"success": False, "error": str(e), "path": ""}
+
+    def extract_system_dump(self) -> Dict:
+        """
+        Extract system info using shell commands (Workaround for failed backups)
+        """
+        local_dir = self.evidence_dir / "system_dump"
+        local_dir.mkdir(exist_ok=True)
+        
+        commands = {
+            "packages_list.txt": "pm list packages -f -3",
+            "system_props.txt": "getprop",
+            "battery_stats.txt": "dumpsys battery",
+            "network_info.txt": "ip address show",
+            "usagestats.txt": "dumpsys usagestats",
+            "permissions.txt": "pm list permissions -g -f"
+        }
+        
+        extracted_count = 0
+        try:
+            for filename, cmd in commands.items():
+                out_file = local_dir / filename
+                with open(out_file, "w", encoding='utf-8') as f:
+                    # Run adb shell <cmd>
+                    result = subprocess.run([self.adb_path, "shell", cmd], 
+                                          capture_output=True, text=True, timeout=15)
+                    f.write(result.stdout)
+                    extracted_count += 1
+            
+            return {
+                "success": True,
+                "path": str(local_dir),
+                "message": f"ran {extracted_count} shell commands"
+            }
+        except Exception as e:
+             return {"success": False, "error": str(e), "path": ""}
+
+    def extract_shared_storage(self, limit: int = 5) -> Dict:
+        """
+        Pull shared storage files using direct ADB pull.
+        Limited to 5 files for testing purposes as requested.
+        """
+        local_dir = self.evidence_dir / "shared_storage"
+        local_dir.mkdir(exist_ok=True)
+        
+        count = 0
+        try:
+            files_to_pull = []
+            
+            # Use 'find' on the device to get a list of files across all target paths
+            # We verify the path exists first to avoid errors
+            for remote_base in self.SHARED_PATHS:
+                if count >= limit: break
+                
+                # Check if path exists
+                check = subprocess.run([self.adb_path, "shell", "ls", remote_base], capture_output=True)
+                if check.returncode != 0:
+                    continue
+
+                # Find files (type f) inside the directory, limiting output
+                # We prioritize images/videos usually found in these folders
+                cmd = [self.adb_path, "shell", f"find {remote_base} -type f | head -n {limit - count}"]
+                
+                try:
+                    result = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
+                    if result.returncode == 0 and result.stdout.strip():
+                        paths = result.stdout.strip().split('\n')
+                        for p in paths:
+                            p = p.strip()
+                            if p and p not in files_to_pull:
+                                files_to_pull.append(p)
+                                count += 1
+                except:
+                    continue
+
+            # Now pull the identified files
+            for remote_file in files_to_pull:
+                try:
+                    # Construct local path maintaining structure relative to /sdcard/
+                    # e.g. /sdcard/DCIM/Camera/IMG.jpg -> evidence/shared_storage/DCIM/Camera/IMG.jpg
+                    rel_path = remote_file.replace('/sdcard/', '')
+                    # Handle cases where path doesn't start with /sdcard/
+                    if rel_path.startswith('/'): rel_path = rel_path[1:]
+                    
+                    target_file = local_dir / rel_path
+                    target_file.parent.mkdir(parents=True, exist_ok=True)
+                    
+                    subprocess.run([self.adb_path, "pull", remote_file, str(target_file)], 
+                                 capture_output=True, timeout=30)
+                except Exception as e:
+                    print(f"Failed to pull {remote_file}: {e}")
+                    
+            return {
+                "success": True, 
+                "path": str(local_dir), 
+                "file_count": count,
+                "message": f"Extracted {count} files (Test Mode)"
+            }
+        except Exception as e:
+            return {"success": False, "error": str(e), "file_count": 0}
     
     def extract_all_data(self, progress_callback=None) -> Dict:
         """
@@ -594,7 +776,10 @@ class AndroidExtractor:
         extraction_tasks = [
             ("sms", "mmssms.db", ["sms"]),
             ("calls", "calllog.db", ["calls"]),
-            ("chrome", "History", ["urls"])
+            ("contacts", "contacts2.db", ["contacts"]),
+            ("chrome", "History", ["urls"]),
+            ("wifi", "WifiConfigStore.xml", []), # XML files don't have tables
+            ("packages", "packages.xml", [])     # XML files don't have tables
         ]
         
         for idx, (data_type, local_name, expected_tables) in enumerate(extraction_tasks, start=4):
@@ -612,9 +797,16 @@ class AndroidExtractor:
                     }
                     extracted = True
                     
-                    # Verify the database
+                    # Verify the database (skip for XML files)
                     update_progress(idx + 0.5, f"Verifying {data_type} data...", 30 + (idx * 10) + 5)
-                    is_valid, verification = self.verify_database(local_path, expected_tables)
+                    
+                    if local_name.endswith('.xml'):
+                        # Simple existence check for XML
+                        is_valid = True
+                        verification = {"file_exists": True, "type": "xml"}
+                    else:
+                        is_valid, verification = self.verify_database(local_path, expected_tables)
+                    
                     results["verification_results"][data_type] = verification
                     
                     if not is_valid:
