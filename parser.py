@@ -19,6 +19,10 @@ def parse_sms(db_path):
         df['date'] = pd.to_datetime(df['date'], unit='ms')
         df['type'] = df['type'].map({1: 'Incoming', 2: 'Outgoing'})
         df['artifact_type'] = 'SMS'
+        
+        # Rename address to title for consistency
+        df = df.rename(columns={'address': 'title'})
+        
         return df
     except Exception as e:
         print(f"Error parsing SMS: {e}")
@@ -37,6 +41,11 @@ def parse_call_logs(db_path):
         df['date'] = pd.to_datetime(df['date'], unit='ms')
         df['type'] = df['type'].map({1: 'Incoming', 2: 'Outgoing', 3: 'Missed'})
         df['artifact_type'] = 'Call Log'
+        
+        # Rename number to title and format duration into body
+        df = df.rename(columns={'number': 'title'})
+        df['body'] = df['duration'].apply(lambda x: f"Duration: {x}s")
+        
         return df
     except Exception as e:
         print(f"Error parsing Call Logs: {e}")
@@ -74,7 +83,8 @@ def parse_contacts(db_path):
             raw_contacts.last_time_contacted
         FROM raw_contacts 
         JOIN data ON raw_contacts._id = data.raw_contact_id
-        WHERE data.mimetype_id = 5 OR data.mimetype = 'vnd.android.cursor.item/phone_v2'
+        LEFT JOIN mimetypes ON data.mimetype_id = mimetypes._id
+        WHERE mimetypes.mimetype = 'vnd.android.cursor.item/phone_v2'
         """
         
         try:
@@ -384,7 +394,7 @@ def parse_content_query(query_path):
                         data_list.append({
                             'date': pd.NaT,
                             'title': f"Contact: {details.get('display_name', 'Unknown')}",
-                            'body': f"Number: {details.get('number', '')}",
+                            'body': f"Number: {details.get('data1', details.get('number', ''))}",
                             'artifact_type': 'Contact (Query)',
                             'type': 'Saved Contact'
                         })

@@ -575,7 +575,7 @@ class AndroidExtractor:
         queries = {
             "sms.txt": "content query --uri content://sms/",
             "calls.txt": "content query --uri content://call_log/calls",
-            "contacts.txt": "content query --uri content://contacts/phones/ --projection display_name:number:last_time_contacted",
+            "contacts.txt": "content query --uri content://com.android.contacts/data/phones --projection display_name:data1:last_time_contacted",
             "calendar.txt": "content query --uri content://com.android.calendar/events --projection title:dtstart:eventLocation",
             "dictionary.txt": "content query --uri content://user_dictionary/words --projection word:frequency"
         }
